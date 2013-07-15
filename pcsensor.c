@@ -7,7 +7,7 @@
  * All rights reserved.
  *
  * Temper driver for linux. This program can be compiled either as a library
- * or as a standalone program (-DUNIT_TEST). The driver will work with some
+ * or as a standalone program (-DSTANDALONE). The driver will work with some
  * TEMPer usb devices from RDing (www.PCsensor.com).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,6 +112,9 @@ static usb_dev_handle *find_lvr_winusb() {
 	for (bus = usb_busses; bus; bus = bus->next) {
 		for (dev = bus->devices; dev; dev = dev->next) {
 			for(i =0;i < SUPPORTED_DEVICES;i++){
+				if(debug) {
+					printf("lvr_winusb with Vendor Id: %x = %x and Product Id: %x = %x checked.\n", dev->descriptor.idVendor, vendor_id[i], dev->descriptor.idProduct, product_id[i]);
+				}	
 				if (dev->descriptor.idVendor == vendor_id[i] && 
 					dev->descriptor.idProduct == product_id[i] ) {
 					usb_dev_handle *handle;
@@ -131,6 +134,42 @@ static usb_dev_handle *find_lvr_winusb() {
 		}
 	}
 	return NULL;
+}
+
+static int count_of_found_devices() {
+ 
+	struct usb_bus *bus;
+	struct usb_device *dev;
+	int i;
+	int count = 0;
+ 
+	for (bus = usb_busses; bus; bus = bus->next) {
+		for (dev = bus->devices; dev; dev = dev->next) {
+			for(i =0;i < SUPPORTED_DEVICES;i++){
+				if(debug) {
+					printf("lvr_winusb with Vendor Id: %x = %x and Product Id: %x = %x checked.\n", dev->descriptor.idVendor, vendor_id[i], dev->descriptor.idProduct, product_id[i]);
+				}	
+				if (dev->descriptor.idVendor == vendor_id[i] && 
+					dev->descriptor.idProduct == product_id[i] ) {
+					usb_dev_handle *handle;
+					if(debug) {
+						printf("lvr_winusb with Vendor Id: %x and Product Id: %x found.\n", vendor_id[i], product_id[i]);
+					}
+
+					if (!(handle = usb_open(dev))) {
+						if(debug){
+							printf("Could not open USB device\n");
+						}
+						return -1;
+					}
+					
+					count++;
+				}
+			}
+		}
+	}
+	
+	return 0;
 }
 
 static usb_dev_handle* setup_libusb_access() {
@@ -404,9 +443,10 @@ float pcsensor_get_temperature(usb_dev_handle* lvr_winusb){
 	return tempc;
 }
 
-#ifdef UNIT_TEST
+#ifdef STANDALONE
 
 int main(){
+	printf("Found %i compatible devices.", count_of_found_devices());
 	usb_dev_handle* lvr_winusb = pcsensor_open();
 	if(!lvr_winusb) return -1;
 	float tempc = pcsensor_get_temperature(lvr_winusb);
