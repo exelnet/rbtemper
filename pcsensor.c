@@ -142,13 +142,22 @@ static int count_of_found_devices() {
 	struct usb_device *dev;
 	int i;
 	int count = 0;
- 
+
+	printf("hello \n");
+	
+	usb_init();
+	usb_find_busses();
+	usb_find_devices();
+
 	for (bus = usb_busses; bus; bus = bus->next) {
+		printf("haha1\n");
 		for (dev = bus->devices; dev; dev = dev->next) {
 			for(i =0;i < SUPPORTED_DEVICES;i++){
 				if(debug) {
 					printf("lvr_winusb with Vendor Id: %x = %x and Product Id: %x = %x checked.\n", dev->descriptor.idVendor, vendor_id[i], dev->descriptor.idProduct, product_id[i]);
-				}	
+				
+				}
+				printf("huhu\n");	
 				if (dev->descriptor.idVendor == vendor_id[i] && 
 					dev->descriptor.idProduct == product_id[i] ) {
 					usb_dev_handle *handle;
@@ -169,7 +178,7 @@ static int count_of_found_devices() {
 		}
 	}
 	
-	return 0;
+	return count;
 }
 
 static usb_dev_handle* setup_libusb_access() {
