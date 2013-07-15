@@ -64,7 +64,7 @@ const static int reqIntLen=8;
 const static int reqBulkLen=8;
 const static int timeout=5000; /* timeout in ms */
  
-static int debug=0;
+static int debug=1;
 
 static int device_type(usb_dev_handle *lvr_winusb){
 	struct usb_device *dev;
@@ -446,7 +446,9 @@ float pcsensor_get_temperature(usb_dev_handle* lvr_winusb){
 #ifdef STANDALONE
 
 int main(){
-	printf("Found %i compatible devices.", count_of_found_devices());
+	if(debug){
+		printf("Found %i compatible devices.\n", count_of_found_devices());
+	}	
 	usb_dev_handle* lvr_winusb = pcsensor_open();
 	if(!lvr_winusb) return -1;
 	float tempc = pcsensor_get_temperature(lvr_winusb);
