@@ -36,6 +36,7 @@
 #include <string.h>
 #include <errno.h>
 #include <float.h>
+#include <math.h>
  
  
 #define INTERFACE1 (0x00)
@@ -64,7 +65,7 @@ const static int reqIntLen=8;
 const static int reqBulkLen=8;
 const static int timeout=5000; /* timeout in ms */
  
-static int debug=1;
+static int debug=0;
 
 static int device_type(usb_dev_handle *lvr_winusb){
 	struct usb_device *dev;
@@ -103,7 +104,7 @@ static int usb_detach(usb_dev_handle *lvr_winusb, int iInterface) {
 	return ret;
 } 
 
-static usb_dev_handle *find_lvr_winusb() {
+static usb_dev_handle *find_lvr_winusb(char *busid, char *deviceid) {
  
 	struct usb_bus *bus;
 	struct usb_device *dev;
@@ -113,75 +114,32 @@ static usb_dev_handle *find_lvr_winusb() {
 		for (dev = bus->devices; dev; dev = dev->next) {
 			for(i =0;i < SUPPORTED_DEVICES;i++){
 				if(debug) {
-					printf("lvr_winusb with Vendor Id: %x = %x and Product Id: %x = %x checked.\n", dev->descriptor.idVendor, vendor_id[i], dev->descriptor.idProduct, product_id[i]);
+					printf("lvr_winusb with busid %s, deviceid %s, Vendor Id: %x = %x and Product Id: %x = %x checked.\n", bus->dirname, dev->filename, dev->descriptor.idVendor, vendor_id[i], dev->descriptor.idProduct, product_id[i]);
 				}	
 				if (dev->descriptor.idVendor == vendor_id[i] && 
 					dev->descriptor.idProduct == product_id[i] ) {
 					usb_dev_handle *handle;
-					if(debug) {
-						printf("lvr_winusb with Vendor Id: %x and Product Id: %x found.\n", vendor_id[i], product_id[i]);
+					if(busid == NULL || deviceid == NULL) {
+						printf("Found device with busid %s and deviceid %s\n", bus->dirname, dev->filename);
 					}
-
-					if (!(handle = usb_open(dev))) {
-						if(debug){
-							printf("Could not open USB device\n");
-						}
+					else if(strcmp(bus->dirname, busid) == 0 && strcmp(dev->filename, deviceid) == 0) {
+					    if (!(handle = usb_open(dev))) {
+						printf("Could not open USB device with busid %s and deviceid %s\n", busid, deviceid);
 						return NULL;
+					    }
+					    return handle;
 					}
-					return handle;
 				}
 			}
-		}
+		}				
 	}
+	if(busid != NULL && deviceid != NULL) {
+	    printf("Device with busid %s and deviceid %s not found.\n", busid, deviceid);
+	}	
 	return NULL;
 }
 
-static int count_of_found_devices() {
- 
-	struct usb_bus *bus;
-	struct usb_device *dev;
-	int i;
-	int count = 0;
-
-	printf("hello \n");
-	
-	usb_init();
-	usb_find_busses();
-	usb_find_devices();
-
-	for (bus = usb_busses; bus; bus = bus->next) {
-		printf("haha1\n");
-		for (dev = bus->devices; dev; dev = dev->next) {
-			for(i =0;i < SUPPORTED_DEVICES;i++){
-				if(debug) {
-					printf("lvr_winusb with Vendor Id: %x = %x and Product Id: %x = %x checked.\n", dev->descriptor.idVendor, vendor_id[i], dev->descriptor.idProduct, product_id[i]);
-				
-				}
-				printf("huhu\n");	
-				if (dev->descriptor.idVendor == vendor_id[i] && 
-					dev->descriptor.idProduct == product_id[i] ) {
-					usb_dev_handle *handle;
-					if(debug) {
-						printf("lvr_winusb with Vendor Id: %x and Product Id: %x found.\n", vendor_id[i], product_id[i]);
-					}
-
-					if (!(handle = usb_open(dev))) {
-						if(debug){
-							printf("Could not open USB device\n");
-						}
-						return -1;
-					}
-					
-					count++;
-				}
-			}
-		}
-	}
-	
-	return count;
-}
-
-static usb_dev_handle* setup_libusb_access() {
+static usb_dev_handle* setup_libusb_access(char *busid, char* deviceid) {
 	usb_dev_handle *lvr_winusb;
 
 	if(debug) {
@@ -194,13 +152,12 @@ static usb_dev_handle* setup_libusb_access() {
 	usb_find_devices();
 
  
-	if(!(lvr_winusb = find_lvr_winusb())) {
-		if(debug){
-			printf("Couldn't find the USB device, Exiting\n");
+	if(!(lvr_winusb = find_lvr_winusb(busid, deviceid))) {
+		if(busid != NULL || deviceid != NULL) {
+		    printf("Couldn't find the USB device with busid %s and deviceid %s, Exiting\n", busid, deviceid);
 		}
 		return NULL;
 	}
-        
         
 	usb_detach(lvr_winusb, INTERFACE1);
         
@@ -380,13 +337,12 @@ static int get_temperature(usb_dev_handle *dev, float *tempC){
 	return 0;
 }
 
-usb_dev_handle* pcsensor_open(){
-	usb_dev_handle *lvr_winusb = NULL;
+pcsensor_open(usb_dev_handle *lvr_winusb){
 	char buf[256];
 	int i, ret;
 
-	if (!(lvr_winusb = setup_libusb_access())) {
-		return NULL;
+	if (!(lvr_winusb == NULL)) {
+		return;
 	} 
 
 	switch(device_type(lvr_winusb)){
@@ -424,7 +380,7 @@ usb_dev_handle* pcsensor_open(){
 	if(debug){
 		printf("device_type=%d\n", device_type(lvr_winusb));
 	}
-	return lvr_winusb;
+	return;
 }
 
 void pcsensor_close(usb_dev_handle* lvr_winusb){
@@ -454,15 +410,33 @@ float pcsensor_get_temperature(usb_dev_handle* lvr_winusb){
 
 #ifdef STANDALONE
 
-int main(){
-	if(debug){
-		printf("Found %i compatible devices.\n", count_of_found_devices());
-	}	
-	usb_dev_handle* lvr_winusb = pcsensor_open();
-	if(!lvr_winusb) return -1;
-	float tempc = pcsensor_get_temperature(lvr_winusb);
-	pcsensor_close(lvr_winusb);
-	printf("tempc=%f\n", tempc);
+int main(int argc, char *argv[]){
+    	char* busid = "";
+	char* deviceid = "";
+	int usage = 0;
+	
+	if(argc < 3) {
+	    setup_libusb_access(NULL, NULL);
+	    printf("Usage: temper <busid> <deviceid>\n");
+	}
+	else {
+	    busid = argv[1];
+	    deviceid = argv[2];
+	    
+	    usb_dev_handle *lvr_winusb = setup_libusb_access(busid, deviceid);
+	    
+	    if(lvr_winusb == NULL) {
+		printf("Could not obtain handle for device with busid %s and deviceid %s\n", busid, deviceid);
+		return -1;
+	    }
+	    
+	    pcsensor_open(lvr_winusb);
+	    float tempc = pcsensor_get_temperature(lvr_winusb);
+	    float roundedTemp = roundf(tempc * 10) / 10.0; 
+	    pcsensor_close(lvr_winusb);
+	    printf("%f", roundedTemp);	 
+	}
+
 	return 0;
 }
 
